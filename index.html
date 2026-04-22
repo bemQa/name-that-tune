@@ -25,7 +25,7 @@
       justify-content: center;
       padding: 16px;
     }
-    .app { width: 100%; max-width: 1200px; display: flex; flex-direction: column; gap: 16px; }
+    .app { width: 100%; max-width: 1380px; display: flex; flex-direction: column; gap: 16px; }
     header, .panel {
       background: var(--card);
       border-radius: 14px;
@@ -124,6 +124,7 @@
     }
     .dialog-row input:focus, .dialog-row select:focus { border-color: var(--accent); }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .dialog-error { min-height: 1.2em; color: #ff8a80; font-size: .82rem; margin-top: 2px; }
     .winner-table-wrapper {
       margin-top: 10px; max-height: 260px; overflow: auto; border-radius: 10px; border: 1px solid #262d46;
       padding: 6px; background: #080c1a;
@@ -233,11 +234,11 @@
   <dialog id="categoriesDialog">
     <div class="dialog-title">Рубрики для строк</div>
     <div class="dialog-body">Укажите названия рубрик для 5 строк.</div>
-    <div class="dialog-row"><label>Строка 1</label><input id="cat1" type="text"></div>
-    <div class="dialog-row"><label>Строка 2</label><input id="cat2" type="text"></div>
-    <div class="dialog-row"><label>Строка 3</label><input id="cat3" type="text"></div>
-    <div class="dialog-row"><label>Строка 4</label><input id="cat4" type="text"></div>
-    <div class="dialog-row"><label>Строка 5</label><input id="cat5" type="text"></div>
+    <div class="dialog-row"><label for="cat1">Строка 1</label><input id="cat1" type="text"></div>
+    <div class="dialog-row"><label for="cat2">Строка 2</label><input id="cat2" type="text"></div>
+    <div class="dialog-row"><label for="cat3">Строка 3</label><input id="cat3" type="text"></div>
+    <div class="dialog-row"><label for="cat4">Строка 4</label><input id="cat4" type="text"></div>
+    <div class="dialog-row"><label for="cat5">Строка 5</label><input id="cat5" type="text"></div>
     <div class="dialog-actions"><button class="btn btn-secondary" id="categoriesCancel">Отмена</button><button class="btn" id="categoriesOk">Сохранить рубрики</button></div>
   </dialog>
 
@@ -250,6 +251,7 @@
       <datalist id="playersList"></datalist>
     </div>
     <div class="dialog-row"><label id="pointsInfo">Баллы за эту ячейку: 0</label></div>
+    <div class="dialog-error" id="scoreError" aria-live="polite"></div>
     <div class="dialog-actions">
       <button class="btn btn-secondary" id="scoreReplay" style="margin-right:auto;">Ещё раз</button>
       <button class="btn btn-secondary" id="scoreSkip">Никто не угадал</button>
@@ -271,6 +273,7 @@
     <div class="dialog-actions"><button class="btn" id="trackNameOk">OK</button></div>
   </dialog>
 
+  <script src="js/core/game-core.js"></script>
   <script>
     const STORAGE_KEY = "guessTheMelodyGameState_v8";
     const TOTAL = 25;
@@ -302,14 +305,13 @@
       playersOk: $("playersOk"), playersCancel: $("playersCancel"), categoriesDialog: $("categoriesDialog"), categoriesOk: $("categoriesOk"),
       categoriesCancel: $("categoriesCancel"), scoreDialog: $("scoreDialog"), winnerSelect: $("winnerSelect"), playersList: $("playersList"),
       scoreOk: $("scoreOk"), scoreSkip: $("scoreSkip"), scoreReplay: $("scoreReplay"), scoreCloseAudio: $("scoreCloseAudio"),
-      pointsInfo: $("pointsInfo"), btnRestart: $("btnRestart"), btnShowWinners: $("btnShowWinners"), btnManageTracks: $("btnManageTracks"),
+      pointsInfo: $("pointsInfo"), scoreError: $("scoreError"), btnRestart: $("btnRestart"), btnShowWinners: $("btnShowWinners"), btnManageTracks: $("btnManageTracks"),
       btnManageCategories: $("btnManageCategories"), trackDialog: $("trackDialog"), tracksList: $("tracksList"), tracksClose: $("tracksClose"),
       tracksSave: $("tracksSave"), trackNameDialog: $("trackNameDialog"), trackNameBody: $("trackNameBody"), trackNameOk: $("trackNameOk"),
       catInputs: [ $("cat1"), $("cat2"), $("cat3"), $("cat4"), $("cat5") ]
     };
-
-    function esc(s) { return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
-    function padTime(v) { if (!Number.isFinite(v) || v < 0) return "0:00"; const m = Math.floor(v / 60); const s = Math.floor(v % 60); return `${m}:${String(s).padStart(2, "0")}`; }
+    const { esc, padTime, normalizePlayers, hasGameProgress, debounce, setCellDisabled } = window.GameCore;
+    const saveStateDebounced = debounce(saveState, 180);
 
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -448,7 +450,12 @@
           btn.dataset.src = track.src || "";
           btn.dataset.title = track.title || `Трек ${index + 1}`;
           const cat = state.categories[row] || "";
-          btn.innerHTML = `<span class="cell-label">${cat ? `${cat} • ` : ""}${points} балл(ов)</span>${points}`;
+          btn.type = "button";
+          const label = document.createElement("span");
+          label.className = "cell-label";
+          label.textContent = `${cat ? `${cat} • ` : ""}${points} балл(ов)`;
+          btn.textContent = String(points);
+          btn.appendChild(label);
           btn.addEventListener("click", onCellClick);
           el.gameGrid.appendChild(btn);
         }
@@ -459,7 +466,7 @@
     function restoreDisabledCells() {
       (state.restored?.disabled || []).forEach((idx) => {
         const cell = el.gameGrid.querySelector(`.cell[data-index="${idx}"]`);
-        if (cell) cell.classList.add("disabled");
+        if (cell) setCellDisabled(cell, true);
       });
       if (state.restored?.current) {
         const c = state.restored.current;
@@ -528,6 +535,7 @@
 
     function openGuessDialog() {
       el.pointsInfo.textContent = `Баллы за эту ячейку: ${state.current?.points || 0}`;
+      el.scoreError.textContent = "";
       el.winnerSelect.value = "";
       el.playersList.innerHTML = state.players.map((n) => `<option value="${esc(n)}"></option>`).join("");
       if (!el.scoreDialog.open) el.scoreDialog.showModal();
@@ -553,7 +561,7 @@
         state.guessedCounts[winnerName] = (state.guessedCounts[winnerName] || 0) + 1;
       }
 
-      c.element.classList.add("disabled");
+      setCellDisabled(c.element, true);
       state.remaining = Math.max(0, state.remaining - 1);
       state.current = null;
       stopAudio(true);
@@ -566,7 +574,11 @@
 
     function applyWinner() {
       const name = el.winnerSelect.value.trim();
-      if (!name) return alert("Введите или выберите имя участника.");
+      if (!name) {
+        el.scoreError.textContent = "Введите или выберите имя участника.";
+        return;
+      }
+      el.scoreError.textContent = "";
       const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
       finalizeCell(state.current?.points || 0, name);
       showTrackNameDialog(title);
@@ -618,7 +630,13 @@
     }
 
     function applyPlayers() {
-      state.players = el.playersInput.value.split(",").map((s) => s.trim()).filter(Boolean);
+      const nextPlayers = normalizePlayers(el.playersInput.value);
+      const changedPlayers = JSON.stringify(nextPlayers) !== JSON.stringify(state.players);
+      if (changedPlayers && hasGameProgress(state, TOTAL)) {
+        const ok = confirm("Изменение списка участников сбросит текущий счёт и статистику. Продолжить?");
+        if (!ok) return;
+      }
+      state.players = nextPlayers;
       state.scores = {};
       state.guessedCounts = {};
       state.players.forEach((n) => { state.scores[n] = 0; state.guessedCounts[n] = 0; });
@@ -718,7 +736,11 @@
 
     el.scoreOk.addEventListener("click", () => {
       const name = el.winnerSelect.value.trim();
-      if (!name) return alert("Введите или выберите имя участника.");
+      if (!name) {
+        el.scoreError.textContent = "Введите или выберите имя участника.";
+        return;
+      }
+      el.scoreError.textContent = "";
       const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
       finalizeCell(state.current?.points || 0, name);
       showTrackNameDialog(title);
@@ -744,7 +766,7 @@
     el.volumeRange.addEventListener("input", () => {
       state.volume = Number(el.volumeRange.value) / 100;
       if (state.audio) state.audio.volume = state.volume;
-      saveState();
+      saveStateDebounced();
     });
 
     el.btnRestart.addEventListener("click", restartGame);

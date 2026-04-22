@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Магия кино</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com; script-src 'self' https://www.youtube.com https://s.ytimg.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src 'self' data: blob: https://www.youtube.com https://www.youtube-nocookie.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; img-src 'self' data: https://i.ytimg.com;">
   <style>
     :root {
       --bg: #0b1020;
@@ -92,6 +93,7 @@
     .media-volume input[type="range"] { width: 100%; }
     .media-status { margin-top: 4px; color: var(--muted); font-size: .85rem; }
     .media-status span { font-weight: 700; }
+    .aside-status { margin-top: 6px; color: var(--muted); font-size: .85rem; }
     .scores-table, .winners-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
     .scores-table th, .scores-table td, .winners-table th, .winners-table td { padding: 4px 6px; text-align: left; }
     .scores-table th, .winners-table th { color: var(--muted); border-bottom: 1px solid #2a314a; font-weight: 600; }
@@ -125,6 +127,22 @@
     }
     .dialog-row input:focus, .dialog-row select:focus, .dialog-row textarea:focus { border-color: var(--accent); }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .dialog-error { min-height: 1.2em; color: #ff8a80; font-size: .82rem; margin-top: 2px; }
+    .player-dialog {
+      max-width: 980px;
+      width: min(96vw, 980px);
+    }
+    .player-dialog-body { display: grid; gap: 10px; }
+    .player-host-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: .82rem;
+    }
+    .player-host-controls label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
     .winner-table-wrapper {
       margin-top: 10px; max-height: 260px; overflow: auto; border-radius: 10px; border: 1px solid #262d46;
       padding: 6px; background: #080c1a;
@@ -192,23 +210,10 @@
 
       <aside class="panel">
         <div class="sidebar-section">
-          <h2>Текущее видео</h2>
+          <h2>Текущий раунд</h2>
           <div class="media-info" id="mediaInfo"></div>
-          <div class="media-controls">
-            <button class="btn btn-secondary" id="mediaPlay">Play</button>
-            <button class="btn btn-secondary" id="mediaPause">Pause</button>
-            <button class="btn btn-secondary" id="mediaStop">Stop</button>
-            <button class="btn btn-secondary" id="mediaReplay">Повтор</button>
-            <button class="btn btn-secondary" id="mediaGuessEarly">Отгадал</button>
-          </div>
-          <div class="media-volume">
-            <label for="volumeRange">Громкость</label>
-            <input id="volumeRange" type="range" min="0" max="100" value="100">
-          </div>
           <div class="media-status">Статус: <span id="mediaStatus">ожидание</span></div>
-          <div class="player-stage" id="mediaStage">
-            <div class="player-placeholder">Видео появится здесь после выбора ячейки.</div>
-          </div>
+          <div class="aside-status">Видео и управление открываются в модальном окне раунда.</div>
         </div>
 
         <div class="sidebar-section">
@@ -256,11 +261,11 @@
   <dialog id="categoriesDialog">
     <div class="dialog-title">Рубрики для строк</div>
     <div class="dialog-body">Укажите названия рубрик для 5 строк.</div>
-    <div class="dialog-row"><label>Строка 1</label><input id="cat1" type="text" placeholder="Фильмы"></div>
-    <div class="dialog-row"><label>Строка 2</label><input id="cat2" type="text" placeholder="Сериалы"></div>
-    <div class="dialog-row"><label>Строка 3</label><input id="cat3" type="text" placeholder="Мультики"></div>
-    <div class="dialog-row"><label>Строка 4</label><input id="cat4" type="text" placeholder="Аниме"></div>
-    <div class="dialog-row"><label>Строка 5</label><input id="cat5" type="text" placeholder="Разное"></div>
+    <div class="dialog-row"><label for="cat1">Строка 1</label><input id="cat1" type="text" placeholder="Фильмы"></div>
+    <div class="dialog-row"><label for="cat2">Строка 2</label><input id="cat2" type="text" placeholder="Сериалы"></div>
+    <div class="dialog-row"><label for="cat3">Строка 3</label><input id="cat3" type="text" placeholder="Мультики"></div>
+    <div class="dialog-row"><label for="cat4">Строка 4</label><input id="cat4" type="text" placeholder="Аниме"></div>
+    <div class="dialog-row"><label for="cat5">Строка 5</label><input id="cat5" type="text" placeholder="Разное"></div>
     <div class="dialog-actions"><button class="btn btn-secondary" id="categoriesCancel">Отмена</button><button class="btn" id="categoriesOk">Сохранить рубрики</button></div>
   </dialog>
 
@@ -273,6 +278,7 @@
       <datalist id="playersList"></datalist>
     </div>
     <div class="dialog-row"><label id="pointsInfo">Баллы за эту ячейку: 0</label></div>
+    <div class="dialog-error" id="scoreError" aria-live="polite"></div>
     <div class="dialog-actions">
       <button class="btn btn-secondary" id="scoreReplay" style="margin-right:auto;">Ещё раз</button>
       <button class="btn btn-secondary" id="scoreSkip">Никто не угадал</button>
@@ -294,6 +300,38 @@
     <div class="dialog-actions"><button class="btn" id="trackNameOk">OK</button></div>
   </dialog>
 
+  <dialog id="playerDialog" class="player-dialog">
+    <div class="dialog-title">Раунд: воспроизведение видео</div>
+    <div class="player-dialog-body">
+      <div class="player-host-controls">
+        <div>Режим игроков: встроенные контролы YouTube скрыты.</div>
+        <label for="hostModeToggle">
+          <input id="hostModeToggle" type="checkbox">
+          Режим ведущего (показать контролы YouTube)
+        </label>
+      </div>
+      <div class="player-stage" id="mediaStage">
+        <div class="player-placeholder">Видео появится здесь после выбора ячейки.</div>
+      </div>
+      <div class="media-controls">
+        <button class="btn btn-secondary" id="mediaPlay">Play</button>
+        <button class="btn btn-secondary" id="mediaPause">Pause</button>
+        <button class="btn btn-secondary" id="mediaStop">Stop</button>
+        <button class="btn btn-secondary" id="mediaReplay">Повтор</button>
+        <button class="btn" id="mediaGuessEarly">Отгадал</button>
+      </div>
+      <div class="media-volume">
+        <label for="volumeRange">Громкость</label>
+        <input id="volumeRange" type="range" min="0" max="100" value="100">
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" id="playerClose">Закрыть раунд</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="js/core/game-core.js"></script>
+  <script src="js/media/youtube-utils.js"></script>
   <script>
     const STORAGE_KEY = "magicCinemaGameState_v2";
     const TOTAL = 25;
@@ -317,10 +355,11 @@
       restored: null,
       youtubeScriptLoading: false,
       youtubePlayer: null,
-      youtubeReady: false
+      youtubeReady: false,
+      youtubeHostMode: false,
+      youtubeVideoId: ""
     };
 
-    let pendingTrackTitle = "";
 
     const $ = (id) => document.getElementById(id);
     const el = {
@@ -332,36 +371,39 @@
       playersOk: $("playersOk"), playersCancel: $("playersCancel"), categoriesDialog: $("categoriesDialog"), categoriesOk: $("categoriesOk"),
       categoriesCancel: $("categoriesCancel"), scoreDialog: $("scoreDialog"), winnerSelect: $("winnerSelect"), playersList: $("playersList"),
       scoreOk: $("scoreOk"), scoreSkip: $("scoreSkip"), scoreReplay: $("scoreReplay"), scoreCloseMedia: $("scoreCloseMedia"),
-      pointsInfo: $("pointsInfo"), btnRestart: $("btnRestart"), btnShowWinners: $("btnShowWinners"), btnManageTracks: $("btnManageTracks"),
+      pointsInfo: $("pointsInfo"), scoreError: $("scoreError"), btnRestart: $("btnRestart"), btnShowWinners: $("btnShowWinners"), btnManageTracks: $("btnManageTracks"),
       btnManageCategories: $("btnManageCategories"), trackDialog: $("trackDialog"), tracksList: $("tracksList"), tracksClose: $("tracksClose"),
       tracksSave: $("tracksSave"), trackNameDialog: $("trackNameDialog"), trackNameBody: $("trackNameBody"), trackNameOk: $("trackNameOk"),
       catInputs: [ $("cat1"), $("cat2"), $("cat3"), $("cat4"), $("cat5") ],
-      mediaStage: $("mediaStage")
+      mediaStage: $("mediaStage"), playerDialog: $("playerDialog"), playerClose: $("playerClose"), hostModeToggle: $("hostModeToggle")
     };
-
-    function esc(s) { return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
-    function padTime(v) { if (!Number.isFinite(v) || v < 0) return "0:00"; const m = Math.floor(v / 60); const s = Math.floor(v % 60); return `${m}:${String(s).padStart(2, "0")}`; }
-    function isYoutube(src) { return /youtu\.be|youtube\.com/i.test(src || ""); }
-
-    function extractYoutubeId(src) {
-      const s = String(src || "").trim();
-      const m1 = s.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
-      if (m1) return m1[1];
-      const m2 = s.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
-      if (m2) return m2[1];
-      const m3 = s.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/);
-      if (m3) return m3[1];
-      return s.length >= 6 ? s : "";
-    }
+    const { esc, padTime, normalizePlayers, hasGameProgress, debounce, setCellDisabled } = window.GameCore;
+    const { extractYoutubeId, ensureYouTubeAPI } = window.YouTubeUtils;
+    const saveStateDebounced = debounce(saveState, 180);
 
     function stopCurrentMedia() {
       if (state.media?.kind === "file" && state.media.el) {
         state.media.el.pause();
         state.media.el.currentTime = 0;
       }
-      if (state.media?.kind === "youtube" && state.youtubePlayer) {
+      if (state.youtubePlayer) {
         try { state.youtubePlayer.pauseVideo(); state.youtubePlayer.stopVideo(); } catch {}
+        try { state.youtubePlayer.destroy(); } catch {}
+        state.youtubePlayer = null;
       }
+      state.media = null;
+      renderMediaPlaceholder();
+    }
+
+    function openPlayerDialog() {
+      if (el.scoreDialog.open) el.scoreDialog.close();
+      if (el.trackNameDialog.open) el.trackNameDialog.close();
+      if (!el.playerDialog.open) el.playerDialog.showModal();
+    }
+
+    function closePlayerDialog(stopMedia = true) {
+      if (stopMedia) stopCurrentMedia();
+      if (el.playerDialog.open) el.playerDialog.close();
     }
 
     function saveState() {
@@ -459,23 +501,6 @@
       tot.textContent = padTime(dur);
     }
 
-    function ensureYouTubeAPI() {
-      return new Promise((resolve) => {
-        if (window.YT && window.YT.Player) return resolve();
-        if (window.__ytApiLoading) {
-          const t = setInterval(() => {
-            if (window.YT && window.YT.Player) { clearInterval(t); resolve(); }
-          }, 100);
-          return;
-        }
-        window.__ytApiLoading = true;
-        window.onYouTubeIframeAPIReady = () => resolve();
-        const tag = document.createElement("script");
-        tag.src = "https://www.youtube.com/iframe_api";
-        document.head.appendChild(tag);
-      });
-    }
-
     function renderMediaPlaceholder() {
       el.mediaStage.innerHTML = `<div class="player-placeholder">Видео появится здесь после выбора ячейки.</div>`;
     }
@@ -519,7 +544,12 @@
           btn.dataset.title = track.title || `Видео ${index + 1}`;
           btn.dataset.type = track.type || "file";
           const cat = state.categories[row] || "";
-          btn.innerHTML = `<span class="cell-label">${cat ? `${cat} • ` : ""}${points} балл(ов)</span>${points}`;
+          btn.type = "button";
+          const label = document.createElement("span");
+          label.className = "cell-label";
+          label.textContent = `${cat ? `${cat} • ` : ""}${points} балл(ов)`;
+          btn.textContent = String(points);
+          btn.appendChild(label);
           btn.addEventListener("click", onCellClick);
           el.gameGrid.appendChild(btn);
         }
@@ -530,7 +560,7 @@
     function restoreDisabledCells() {
       (state.restored?.disabled || []).forEach((idx) => {
         const cell = el.gameGrid.querySelector(`.cell[data-index="${idx}"]`);
-        if (cell) cell.classList.add("disabled");
+        if (cell) setCellDisabled(cell, true);
       });
       if (state.restored?.current) {
         const c = state.restored.current;
@@ -557,6 +587,7 @@
 
       stopCurrentMedia();
       setCurrentMediaFromCell(cell);
+      openPlayerDialog();
       updateMediaInfo();
       el.mediaStatus.textContent = "играет";
 
@@ -566,13 +597,25 @@
           el.mediaStatus.textContent = "ошибка источника YouTube";
           return;
         }
+        if (state.youtubePlayer) {
+          try { state.youtubePlayer.destroy(); } catch {}
+          state.youtubePlayer = null;
+        }
         el.mediaStage.innerHTML = `<div id="youtubePlayer" class="player-screen"></div>`;
-        await ensureYouTubeAPI();
+        try {
+          await ensureYouTubeAPI(10000);
+        } catch {
+          el.mediaStatus.textContent = "YouTube API недоступен";
+          renderMediaPlaceholder();
+          return;
+        }
+        state.media = { kind: "youtube" };
+        state.youtubeVideoId = videoId;
         state.youtubePlayer = new YT.Player("youtubePlayer", {
           height: "100%",
           width: "100%",
           videoId,
-          playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 },
+          playerVars: { autoplay: 1, controls: state.youtubeHostMode ? 1 : 0, rel: 0, modestbranding: 1, playsinline: 1 },
           events: {
             onReady: (e) => {
               e.target.setVolume(Math.round(state.volume * 100));
@@ -587,7 +630,7 @@
 
       const video = document.createElement("video");
       video.className = "player-screen";
-      video.controls = true;
+      video.controls = state.youtubeHostMode;
       video.playsInline = true;
       video.preload = "metadata";
       video.src = src;
@@ -610,29 +653,16 @@
     }
 
     function showTrackNameDialog(trackTitle) {
-      pendingTrackTitle = trackTitle || "—";
-      if (el.scoreDialog.open) {
-        el.scoreDialog.close();
-        return;
-      }
-      el.trackNameBody.textContent = `Название видео: ${pendingTrackTitle}`;
+      if (el.playerDialog.open) closePlayerDialog(false);
+      if (el.scoreDialog.open) el.scoreDialog.close();
+      el.trackNameBody.textContent = `Название видео: ${trackTitle || "—"}`;
       if (!el.trackNameDialog.open) el.trackNameDialog.showModal();
     }
 
-    el.scoreDialog.addEventListener("close", () => {
-      if (!pendingTrackTitle) return;
-      const title = pendingTrackTitle;
-      pendingTrackTitle = "";
-      el.trackNameBody.textContent = `Название видео: ${title}`;
-      if (!el.trackNameDialog.open) el.trackNameDialog.showModal();
-    });
-
-    el.trackNameDialog.addEventListener("close", () => {
-      pendingTrackTitle = "";
-    });
-
     function openGuessDialog() {
+      if (el.playerDialog.open) closePlayerDialog(false);
       el.pointsInfo.textContent = `Баллы за эту ячейку: ${state.current?.points || 0}`;
+      el.scoreError.textContent = "";
       el.winnerSelect.value = "";
       el.playersList.innerHTML = state.players.map((n) => `<option value="${esc(n)}"></option>`).join("");
       if (!el.scoreDialog.open) el.scoreDialog.showModal();
@@ -642,7 +672,6 @@
       el.mediaStatus.textContent = "завершено";
       syncProgress();
       if (state.current) {
-        showTrackNameDialog(state.current.trackTitle || state.tracks[state.current.index]?.title);
         openGuessDialog();
       }
       saveState();
@@ -658,7 +687,7 @@
         state.guessedCounts[winnerName] = (state.guessedCounts[winnerName] || 0) + 1;
       }
 
-      c.element.classList.add("disabled");
+      setCellDisabled(c.element, true);
       state.remaining = Math.max(0, state.remaining - 1);
       state.current = null;
       stopCurrentMedia();
@@ -671,32 +700,38 @@
 
     function applyWinner() {
       const name = el.winnerSelect.value.trim();
-      if (!name) return alert("Введите или выберите имя участника.");
+      if (!name) {
+        el.scoreError.textContent = "Введите или выберите имя участника.";
+        return;
+      }
+      el.scoreError.textContent = "";
       const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
       finalizeCell(state.current?.points || 0, name);
-      showTrackNameDialog(title);
       el.scoreDialog.close();
+      showTrackNameDialog(title);
     }
 
     function skipWinner() {
+      el.scoreError.textContent = "";
       const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
       finalizeCell(0, "");
-      showTrackNameDialog(title);
       el.scoreDialog.close();
+      showTrackNameDialog(title);
     }
 
     function stopOnly() {
       stopCurrentMedia();
       el.mediaStatus.textContent = "пауза";
+      if (el.playerDialog.open) closePlayerDialog(false);
       syncProgress();
       saveState();
     }
 
     function earlyGuess() {
-      if (!state.media || !state.current) return;
+      if (!state.current) return;
       stopCurrentMedia();
+      if (el.playerDialog.open) closePlayerDialog(false);
       el.mediaStatus.textContent = "прервано для ответа";
-      showTrackNameDialog(state.current.trackTitle || state.tracks[state.current.index]?.title);
       openGuessDialog();
       saveState();
     }
@@ -706,9 +741,15 @@
       playTrack(state.current.element);
     }
 
+    function refreshPlayerMode() {
+      if (!state.current) return;
+      replayTrack();
+    }
+
     function checkFinished() {
       if (state.remaining <= 0) {
         state.finished = true;
+        closePlayerDialog();
         el.winnersSection.style.display = "block";
         el.footerMessage.innerHTML = '<span style="color:#4caf50;font-weight:600;">Игра завершена.</span> Ниже отображена таблица победителей.';
       }
@@ -721,7 +762,13 @@
     }
 
     function applyPlayers() {
-      state.players = el.playersInput.value.split(",").map((s) => s.trim()).filter(Boolean);
+      const nextPlayers = normalizePlayers(el.playersInput.value);
+      const changedPlayers = JSON.stringify(nextPlayers) !== JSON.stringify(state.players);
+      if (changedPlayers && hasGameProgress(state, TOTAL)) {
+        const ok = confirm("Изменение списка участников сбросит текущий счёт и статистику. Продолжить?");
+        if (!ok) return;
+      }
+      state.players = nextPlayers;
       state.scores = {};
       state.guessedCounts = {};
       state.players.forEach((n) => { state.scores[n] = 0; state.guessedCounts[n] = 0; });
@@ -799,7 +846,6 @@
       state.finished = false;
       state.current = null;
       state.restored = null;
-      pendingTrackTitle = "";
       updateCategoriesHeader();
       renderGrid();
       updateScores();
@@ -813,6 +859,8 @@
 
     function init() {
       const restored = loadState();
+      state.youtubeHostMode = false;
+      el.hostModeToggle.checked = false;
       updateCategoriesHeader();
       renderGrid();
       updateSummary();
@@ -832,20 +880,8 @@
     el.playersCancel.addEventListener("click", () => el.playersDialog.close());
     el.categoriesOk.addEventListener("click", applyCategories);
     el.categoriesCancel.addEventListener("click", () => el.categoriesDialog.close());
-    el.scoreOk.addEventListener("click", () => {
-      const name = el.winnerSelect.value.trim();
-      if (!name) return alert("Введите или выберите имя участника.");
-      const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
-      finalizeCell(state.current?.points || 0, name);
-      showTrackNameDialog(title);
-      el.scoreDialog.close();
-    });
-    el.scoreSkip.addEventListener("click", () => {
-      const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
-      finalizeCell(0, "");
-      showTrackNameDialog(title);
-      el.scoreDialog.close();
-    });
+    el.scoreOk.addEventListener("click", applyWinner);
+    el.scoreSkip.addEventListener("click", skipWinner);
     el.scoreReplay.addEventListener("click", replayTrack);
     el.scoreCloseMedia.addEventListener("click", stopOnly);
 
@@ -862,12 +898,21 @@
     el.mediaStop.addEventListener("click", stopOnly);
     el.mediaReplay.addEventListener("click", replayTrack);
     el.mediaGuessEarly.addEventListener("click", earlyGuess);
+    el.playerClose.addEventListener("click", () => closePlayerDialog());
+    el.playerDialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      closePlayerDialog();
+    });
+    el.hostModeToggle.addEventListener("change", () => {
+      state.youtubeHostMode = el.hostModeToggle.checked;
+      refreshPlayerMode();
+    });
 
     el.volumeRange.addEventListener("input", () => {
       state.volume = Number(el.volumeRange.value) / 100;
       if (state.media?.kind === "file" && state.media.el) state.media.el.volume = state.volume;
       if (state.media?.kind === "youtube" && state.youtubePlayer?.setVolume) state.youtubePlayer.setVolume(Math.round(state.volume * 100));
-      saveState();
+      saveStateDebounced();
     });
 
     el.btnRestart.addEventListener("click", restartGame);
