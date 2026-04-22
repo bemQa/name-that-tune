@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Угадай мелодию</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #151b30;
+      --accent: #ffcc33;
+      --accent-dark: #e0ac00;
+      --text: #f5f5f5;
+      --muted: #9aa0c0;
+      --success: #4caf50;
+      --danger: #ff5252;
+      --cell-size-desktop: 150px;
+      --gap-desktop: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at top, #1b2340 0, #050815 60%, #02030a 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      background: rgba(10, 16, 35, 0.9);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .players-summary {
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .players-summary span {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 2fr 1.3fr;
+      gap: 16px;
+    }
+
+    .board-wrapper,
+    .sidebar {
+      background: rgba(10, 16, 35, 0.92);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+    }
+
+    .board-title {
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      color: var(--muted);
+    }
+
+    .board-title strong {
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+
+    #categoriesHeader {
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-auto-rows: minmax(var(--cell-size-desktop), var(--cell-size-desktop));
+      gap: var(--gap-desktop);
+    }
+
+    .cell {
+      position: relative;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #1f2844, #151b30);
+      border: 2px solid #2d3555;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 2rem;
+      cursor: pointer;
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+      user-select: none;
+    }
+
+    .cell:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.8);
+      border-color: var(--accent);
+    }
+
+    .cell:active {
+      transform: translateY(1px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.9);
+    }
+
+    .cell.disabled {
+      background: linear-gradient(135deg, #202535, #151827);
+      color: #555b78;
+      border-color: #262b3f;
+      cursor: default;
+      box-shadow: none;
+      text-shadow: none;
+    }
+
+    .cell.disabled::after {
+      content: "✓";
+      position: absolute;
+      right: 8px;
+      bottom: 4px;
+      font-size: 1.2rem;
+      color: var(--success);
+      opacity: 0.9;
+    }
+
+    .cell-label {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      right: 8px;
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      line-height: 1.1;
+      text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .sidebar-section { margin-bottom: 16px; }
+    .sidebar-section:last-child { margin-bottom: 0; }
+
+    .sidebar-section h2 {
+      font-size: 1rem;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+
+    .audio-info {
+      font-size: 0.9rem;
+      color: var(--muted);
+      min-height: 3.6em;
+    }
+
+    .audio-title {
+      color: var(--text);
+      margin-bottom: 4px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .audio-progress-wrap {
+      margin-top: 6px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .audio-progress-bar {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: #0a0f20;
+      overflow: hidden;
+      border: 1px solid #2c3450;
+    }
+
+    .audio-progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #ffcc33, #ff9800);
+      border-radius: inherit;
+    }
+
+    .audio-progress-text {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .audio-controls {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .audio-volume {
+      margin-top: 10px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .audio-volume label {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .audio-volume input[type="range"] {
+      width: 100%;
+    }
+
+    .audio-status {
+      margin-top: 4px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .audio-status span { font-weight: 600; }
+
+    .scores-table,
+    .winners-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .scores-table th,
+    .scores-table td,
+    .winners-table th,
+    .winners-table td {
+      padding: 4px 6px;
+      text-align: left;
+    }
+
+    .scores-table th,
+    .winners-table th {
+      border-bottom: 1px solid #2a314a;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .scores-table td,
+    .winners-table td {
+      border-bottom: 1px solid #1a2035;
+    }
+
+    .scores-table tr.winner td {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .scores-empty {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .footer-message {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffcc33, #ff9800);
+      color: #201308;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+      transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 7px 18px rgba(0, 0, 0, 0.8);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.8);
+      opacity: 0.9;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid #39415f;
+      color: var(--muted);
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: none;
+      box-shadow: none;
+    }
+
+    dialog {
+      border: none;
+      border-radius: 16px;
+      background: #111629;
+      color: var(--text);
+      padding: 16px 18px 14px;
+      max-width: 520px;
+      width: 92%;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.85);
+    }
+
+    dialog::backdrop {
+      background: rgba(3, 5, 12, 0.75);
+      backdrop-filter: blur(8px);
+    }
+
+    .dialog-title {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+
+    .dialog-body {
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+      color: var(--muted);
+    }
+
+    .dialog-row {
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .dialog-row label {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .dialog-row input,
+    .dialog-row select {
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #2c3450;
+      background: #060816;
+      color: var(--text);
+      outline: none;
+      font-size: 0.95rem;
+    }
+
+    .dialog-row input:focus,
+    .dialog-row select:focus {
+      border-color: var(--accent);
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .winner-table-wrapper {
+      margin-top: 10px;
+      max-height: 260px;
+      overflow: auto;
+      border-radius: 10px;
+      border: 1px solid #262d46;
+      padding: 6px;
+      background: #080c1a;
+    }
+
+    .winners-table tr:first-child td {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .winner-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      border: 1px solid #384266;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .tracks-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .track-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 0.7fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #29324f;
+      border-radius: 12px;
+      background: #0a1020;
+    }
+
+    .track-row input,
+    .track-row select {
+      width: 100%;
+    }
+
+    .track-row .mini {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .track-row .remove-track {
+      white-space: nowrap;
+    }
+
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; }
+      .board-wrapper, .sidebar { padding: 12px; }
+      .track-row { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 8px; align-items: flex-start; }
+      header { flex-direction: column; align-items: flex-start; gap: 6px; }
+      header h1 { font-size: 1.1rem; }
+      .board-title { font-size: 0.95rem; }
+      .grid { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: minmax(64px, 1fr); gap: 6px; }
+      .cell { font-size: 1.4rem; border-radius: 8px; }
+      .cell-label { font-size: 0.56rem; }
+      .sidebar-section h2 { font-size: 0.95rem; }
+      .scores-table, .winners-table { font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Игра «Угадай мелодию»</h1>
+      <div class="players-summary">
+        Участники: <span id="playersCount">0</span><br />
+        Активных кнопок: <span id="cellsLeft">25</span> / 25
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="board-wrapper">
+        <div class="board-title">
+          <div>Выберите ячейку на поле, чтобы запустить мелодию.</div>
+          <div><strong>Сетка 5 × 5</strong></div>
+        </div>
+        <div id="categoriesHeader">Рубрики не заданы.</div>
+        <div class="grid" id="gameGrid"></div>
+      </section>
+
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Текущая мелодия</h2>
+          <div class="audio-info" id="audioInfo">
+            <div class="audio-title">Пока ничего не играет.</div>
+            <div class="audio-progress-wrap">
+              <div class="audio-progress-bar"><div class="audio-progress-fill" id="audioProgressFill"></div></div>
+              <div class="audio-progress-text">
+                <span id="audioTimeCurrent">0:00</span>
+                <span id="audioTimeTotal">0:00</span>
+              </div>
+            </div>
+          </div>
+          <div class="audio-controls">
+            <button class="btn btn-secondary" id="audioPlay">Play</button>
+            <button class="btn btn-secondary" id="audioPause">Pause</button>
+            <button class="btn btn-secondary" id="audioStop">Stop</button>
+            <button class="btn btn-secondary" id="audioReplay">Повтор</button>
+            <button class="btn btn-secondary" id="audioGuessEarly">Отгадал</button>
+          </div>
+          <div class="audio-volume">
+            <label for="volumeRange">Громкость</label>
+            <input id="volumeRange" type="range" min="0" max="100" value="100" />
+          </div>
+          <div class="audio-status" id="audioStatus">Статус: <span>ожидание</span></div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Счёт участников</h2>
+          <table class="scores-table" id="scoresTable">
+            <thead>
+              <tr>
+                <th>Игрок</th>
+                <th>Баллы</th>
+                <th>Угадано</th>
+              </tr>
+            </thead>
+            <tbody id="scoresBody">
+              <tr><td colspan="3" class="scores-empty">Зарегистрируйте игроков перед началом игры.</td></tr>
+            </tbody>
+          </table>
+          <div class="footer-message" id="footerMessage">
+            После окончания игры автоматически появится таблица победителей.
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Управление игрой</h2>
+          <button class="btn" id="btnRestart">Новая партия</button>
+          <button class="btn btn-secondary" id="btnShowWinners" style="margin-left:8px;">Показать итоговую таблицу</button>
+          <div style="margin-top:8px;font-size:0.8rem;color:var(--muted);">
+            Перед новой партией можно изменить игроков, рубрики и треки.
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Треки и рубрики</h2>
+          <button class="btn btn-secondary" id="btnManageTracks">Настроить треки</button>
+          <div style="margin-top:8px;font-size:0.8rem;color:var(--muted);">
+            Треки назначаются по строкам и колонкам в таблице.
+          </div>
+        </div>
+
+        <div class="sidebar-section" id="winnersSection" style="display:none;">
+          <h2>Итоги игры</h2>
+          <div class="winner-table-wrapper">
+            <table class="winners-table" id="winnersTable">
+              <thead>
+                <tr><th>Место</th><th>Игрок</th><th>Баллы</th></tr>
+              </thead>
+              <tbody id="winnersBody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:6px;">
+            <span class="winner-badge" id="winnerBadge">Победитель: —</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <dialog id="playersDialog">
+    <div class="dialog-title">Регистрация участников</div>
+    <div class="dialog-body">Введите имена игроков через запятую.</div>
+    <div class="dialog-row">
+      <label for="playersInput">Имена участников:</label>
+      <input id="playersInput" type="text" placeholder="Игрок 1, Игрок 2, Игрок 3" />
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" id="playersCancel">Отмена</button>
+      <button class="btn" id="playersOk">Сохранить</button>
+    </div>
+  </dialog>
+
+  <dialog id="categoriesDialog">
+    <div class="dialog-title">Рубрики для строк</div>
+    <div class="dialog-body">Укажите названия рубрик для 5 строк.</div>
+    <div class="dialog-row"><label for="cat1">Строка 1</label><input id="cat1" type="text" placeholder="Например: Исполнители 90-х" /></div>
+    <div class="dialog-row"><label for="cat2">Строка 2</label><input id="cat2" type="text" placeholder="..." /></div>
+    <div class="dialog-row"><label for="cat3">Строка 3</label><input id="cat3" type="text" placeholder="..." /></div>
+    <div class="dialog-row"><label for="cat4">Строка 4</label><input id="cat4" type="text" placeholder="..." /></div>
+    <div class="dialog-row"><label for="cat5">Строка 5</label><input id="cat5" type="text" placeholder="..." /></div>
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" id="categoriesCancel">Отмена</button>
+      <button class="btn" id="categoriesOk">Сохранить рубрики</button>
+    </div>
+  </dialog>
+
+  <dialog id="scoreDialog">
+    <div class="dialog-title">Кто угадал мелодию?</div>
+    <div class="dialog-body">Можно повторить трек, остановить его раньше или сразу указать победителя.</div>
+    <div class="dialog-row">
+      <label for="winnerSelect">Участник:</label>
+      <input list="playersList" id="winnerSelect" placeholder="Выберите или введите" />
+      <datalist id="playersList"></datalist>
+    </div>
+    <div class="dialog-row">
+      <label id="pointsInfo">Баллы за эту ячейку: 0</label>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" id="scoreReplay" style="margin-right:auto;">Ещё раз</button>
+      <button class="btn btn-secondary" id="scoreSkip">Никто не угадал</button>
+      <button class="btn btn-secondary" id="scoreCloseAudio">Стоп трек</button>
+      <button class="btn" id="scoreOk">Начислить баллы</button>
+    </div>
+  </dialog>
+
+  <dialog id="trackDialog">
+    <div class="dialog-title">Настройка треков</div>
+    <div class="dialog-body">Укажите название и ссылку/путь к треку. Можно назначить треки по строкам и колонкам.</div>
+    <div class="tracks-list" id="tracksList"></div>
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" id="tracksAdd">Добавить строку</button>
+      <button class="btn btn-secondary" id="tracksClose">Закрыть</button>
+      <button class="btn" id="tracksSave">Сохранить</button>
+    </div>
+  </dialog>
+
+  <dialog id="trackNameDialog">
+    <div class="dialog-title" id="trackNameTitle">Трек угадан</div>
+    <div class="dialog-body" id="trackNameBody"></div>
+    <div class="dialog-actions">
+      <button class="btn" id="trackNameOk">OK</button>
+    </div>
+  </dialog>
+
+  <script>
+    const STORAGE_KEY = "guessTheMelodyGameState_v3";
+
+    const defaultTracks = Array.from({ length: 25 }, (_, i) => ({
+      title: `Трек ${i + 1}`,
+      src: `music/track${i + 1}.mp3`
+    }));
+
+    const state = {
+      players: [],
+      scores: {},
+      guessedCounts: {},
+      totalCells: 25,
+      remainingCells: 25,
+      finished: false,
+      currentCell: null,
+      currentAudio: null,
+      categories: [],
+      tracks: structuredClone(defaultTracks),
+      volume: 1,
+      restored: false
+    };
+
+    const gameGrid = document.getElementById("gameGrid");
+    const playersDialog = document.getElementById("playersDialog");
+    const playersInput = document.getElementById("playersInput");
+    const playersOk = document.getElementById("playersOk");
+    const playersCancel = document.getElementById("playersCancel");
+    const playersCountEl = document.getElementById("playersCount");
+    const cellsLeftEl = document.getElementById("cellsLeft");
+    const scoresBody = document.getElementById("scoresBody");
+    const audioInfo = document.getElementById("audioInfo");
+    const audioStatus = document.getElementById("audioStatus").querySelector("span");
+    const btnRestart = document.getElementById("btnRestart");
+    const btnShowWinners = document.getElementById("btnShowWinners");
+    const btnManageTracks = document.getElementById("btnManageTracks");
+
+    const audioPlay = document.getElementById("audioPlay");
+    const audioPause = document.getElementById("audioPause");
+    const audioStop = document.getElementById("audioStop");
+    const audioReplayBtn = document.getElementById("audioReplay");
+    const audioGuessEarly = document.getElementById("audioGuessEarly");
+    const volumeRange = document.getElementById("volumeRange");
+    const audioProgressFill = document.getElementById("audioProgressFill");
+    const audioTimeCurrent = document.getElementById("audioTimeCurrent");
+    const audioTimeTotal = document.getElementById("audioTimeTotal");
+
+    const scoreDialog = document.getElementById("scoreDialog");
+    const winnerSelect = document.getElementById("winnerSelect");
+    const playersList = document.getElementById("playersList");
+    const scoreOk = document.getElementById("scoreOk");
+    const scoreSkip = document.getElementById("scoreSkip");
+    const scoreReplay = document.getElementById("scoreReplay");
+    const scoreCloseAudio = document.getElementById("scoreCloseAudio");
+    const pointsInfo = document.getElementById("pointsInfo");
+
+    const winnersSection = document.getElementById("winnersSection");
+    const winnersBody = document.getElementById("winnersBody");
+    const winnerBadge = document.getElementById("winnerBadge");
+    const footerMessage = document.getElementById("footerMessage");
+    const categoriesHeader = document.getElementById("categoriesHeader");
+
+    const categoriesDialog = document.getElementById("categoriesDialog");
+    const categoriesOk = document.getElementById("categoriesOk");
+    const categoriesCancel = document.getElementById("categoriesCancel");
+    const catInputs = [cat1, cat2, cat3, cat4, cat5];
+
+    const trackDialog = document.getElementById("trackDialog");
+    const tracksList = document.getElementById("tracksList");
+    const tracksAdd = document.getElementById("tracksAdd");
+    const tracksClose = document.getElementById("tracksClose");
+    const tracksSave = document.getElementById("tracksSave");
+
+    const trackNameDialog = document.getElementById("trackNameDialog");
+    const trackNameTitle = document.getElementById("trackNameTitle");
+    const trackNameBody = document.getElementById("trackNameBody");
+    const trackNameOk = document.getElementById("trackNameOk");
+
+    function padTime(sec) {
+      if (!Number.isFinite(sec) || sec < 0) return "0:00";
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    function currentTrack() {
+      return state.currentCell ? state.tracks[state.currentCell.index] : null;
+    }
+
+    function updateAudioInfo() {
+      const track = currentTrack();
+      if (!track) {
+        audioInfo.innerHTML = `<div class="audio-title">Пока ничего не играет.</div>
+          <div class="audio-progress-wrap">
+            <div class="audio-progress-bar"><div class="audio-progress-fill" id="audioProgressFill"></div></div>
+            <div class="audio-progress-text"><span id="audioTimeCurrent">0:00</span><span id="audioTimeTotal">0:00</span></div>
+          </div>`;
+        return;
+      }
+      audioInfo.innerHTML = `
+        <div class="audio-title">${escapeHtml(track.title || `Трек ${state.currentCell.index + 1}`)}</div>
+        <div class="audio-progress-wrap">
+          <div class="audio-progress-bar"><div class="audio-progress-fill" id="audioProgressFill"></div></div>
+          <div class="audio-progress-text"><span id="audioTimeCurrent">${padTime(state.currentAudio?.currentTime || 0)}</span><span id="audioTimeTotal">${padTime(state.currentAudio?.duration || 0)}</span></div>
+        </div>
+      `;
+    }
+
+    function refreshAudioUI() {
+      const fill = document.getElementById("audioProgressFill");
+      const cur = document.getElementById("audioTimeCurrent");
+      const tot = document.getElementById("audioTimeTotal");
+      if (!fill || !cur || !tot) return;
+      const audio = state.currentAudio;
+      const duration = audio?.duration || 0;
+      const current = audio?.currentTime || 0;
+      fill.style.width = duration > 0 ? `${Math.min(100, (current / duration) * 100)}%` : "0%";
+      cur.textContent = padTime(current);
+      tot.textContent = padTime(duration);
+    }
+
+    function saveState() {
+      const payload = {
+        players: state.players,
+        scores: state.scores,
+        guessedCounts: state.guessedCounts,
+        remainingCells: state.remainingCells,
+        finished: state.finished,
+        categories: state.categories,
+        tracks: state.tracks,
+        volume: state.volume,
+        disabledCells: Array.from(gameGrid.querySelectorAll(".cell.disabled")).map(el => Number(el.dataset.index)),
+        currentCellIndex: state.currentCell ? state.currentCell.index : null,
+        currentTime: state.currentAudio ? state.currentAudio.currentTime : 0,
+        currentTrackSrc: state.currentCell ? state.currentCell.trackPath : null,
+        currentTrackTitle: state.currentCell ? currentTrack().title : null
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      try {
+        const data = JSON.parse(raw);
+        state.players = Array.isArray(data.players) ? data.players : [];
+        state.scores = data.scores || {};
+        state.guessedCounts = data.guessedCounts || {};
+        state.remainingCells = Number.isFinite(data.remainingCells) ? data.remainingCells : 25;
+        state.finished = !!data.finished;
+        state.categories = Array.isArray(data.categories) ? data.categories : [];
+        state.tracks = Array.isArray(data.tracks) && data.tracks.length === 25 ? data.tracks : structuredClone(defaultTracks);
+        state.volume = typeof data.volume === "number" ? data.volume : 1;
+        volumeRange.value = String(Math.round(state.volume * 100));
+        state.restored = true;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function renderCategoriesHeader() {
+      if (!state.categories.some(Boolean)) {
+        categoriesHeader.textContent = "Рубрики не заданы.";
+        return;
+      }
+      categoriesHeader.textContent = state.categories.map((name, idx) => name ? `Строка ${idx + 1}: ${name}` : `Строка ${idx + 1}: —`).join(" | ");
+    }
+
+    function syncPlayersUI() {
+      playersCountEl.textContent = String(state.players.length);
+      if (state.players.length === 0) {
+        scoresBody.innerHTML = `<tr><td colspan="3" class="scores-empty">Участники не зарегистрированы.</td></tr>`;
+        return;
+      }
+      const sortedPlayers = [...state.players].sort((a, b) => (state.scores[b] || 0) - (state.scores[a] || 0));
+      const bestScore = state.scores[sortedPlayers[0]] || 0;
+      scoresBody.innerHTML = "";
+      sortedPlayers.forEach((name) => {
+        const tr = document.createElement("tr");
+        if ((state.scores[name] || 0) === bestScore && bestScore > 0) tr.classList.add("winner");
+        tr.innerHTML = `<td>${escapeHtml(name)}</td><td>${state.scores[name] || 0}</td><td>${state.guessedCounts[name] || 0}</td>`;
+        scoresBody.appendChild(tr);
+      });
+    }
+
+    function buildWinnersTable() {
+      winnersBody.innerHTML = "";
+      const entries = Object.entries(state.scores).sort((a, b) => b[1] - a[1]);
+      if (!entries.length) {
+        winnersBody.innerHTML = `<tr><td colspan="3">Нет данных по очкам.</td></tr>`;
+        winnerBadge.textContent = "Победитель: —";
+        return;
+      }
+      entries.forEach(([name, score], idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${idx + 1}</td><td>${escapeHtml(name)}</td><td>${score}</td>`;
+        winnersBody.appendChild(tr);
+      });
+      winnerBadge.textContent = `Победитель: ${entries[0][0]} (${entries[0][1]} балл(ов))`;
+    }
+
+    function updateGameCounters() {
+      cellsLeftEl.textContent = String(state.remainingCells);
+    }
+
+    function stopCurrentAudio(resetTime = true) {
+      if (!state.currentAudio) return;
+      state.currentAudio.pause();
+      if (resetTime) state.currentAudio.currentTime = 0;
+      audioStatus.textContent = resetTime ? "остановлено" : "пауза";
+      refreshAudioUI();
+      saveState();
+    }
+
+    function setCurrentAudio(audio, cellData) {
+      if (state.currentAudio) {
+        state.currentAudio.pause();
+        state.currentAudio = null;
+      }
+
+      state.currentAudio = audio;
+      state.currentCell = cellData;
+      state.currentAudio.volume = state.volume;
+
+      state.currentAudio.addEventListener("timeupdate", refreshAudioUI);
+      state.currentAudio.addEventListener("loadedmetadata", refreshAudioUI);
+      state.currentAudio.addEventListener("ended", onAudioEnded);
+
+      updateAudioInfo();
+      audioStatus.textContent = "играет";
+      refreshAudioUI();
+    }
+
+    function playCellAudio(cell, resume = false) {
+      if (!cell || state.finished) return;
+
+      const index = Number(cell.dataset.index);
+      const track = state.tracks[index];
+      if (!track || !track.src) {
+        alert("Для этой ячейки не задан трек.");
+        return;
+      }
+
+      if (state.currentAudio) {
+        state.currentAudio.pause();
+        state.currentAudio = null;
+      }
+
+      const audio = new Audio(track.src);
+      audio.volume = state.volume;
+      if (resume && typeof state.resumeTime === "number") audio.currentTime = state.resumeTime;
+
+      setCurrentAudio(audio, {
+        element: cell,
+        points: Number(cell.dataset.points || 0),
+        index,
+        trackPath: track.src,
+        trackTitle: track.title || `Трек ${index + 1}`,
+        categoryIndex: Number(cell.dataset.categoryIndex || 0)
+      });
+
+      audio.play().catch(() => {
+        audioStatus.textContent = "ошибка воспроизведения";
+      });
+      saveState();
+    }
+
+    function onCellClick(e) {
+      const cell = e.currentTarget;
+      if (cell.classList.contains("disabled") || state.finished) return;
+      playCellAudio(cell);
+    }
+
+    function onAudioEnded() {
+      audioStatus.textContent = "завершено";
+      refreshAudioUI();
+
+      if (!state.currentCell) return;
+      pointsInfo.textContent = `Баллы за эту ячейку: ${state.currentCell.points}`;
+      winnerSelect.value = "";
+
+      while (playersList.firstChild) playersList.removeChild(playersList.firstChild);
+      state.players.forEach((name) => {
+        const option = document.createElement("option");
+        option.value = name;
+        playersList.appendChild(option);
+      });
+
+      trackNameTitle.textContent = "Трек угадан";
+      const track = currentTrack();
+      trackNameBody.textContent = `Название трека: ${track?.title || `Трек ${state.currentCell.index + 1}`}`;
+      trackNameDialog.showModal();
+      scoreDialog.showModal();
+      saveState();
+    }
+
+    function replayCurrentTrack() {
+      if (!state.currentCell) return;
+      const cell = state.currentCell.element;
+      if (!cell) return;
+      playCellAudio(cell);
+    }
+
+    function guessEarly() {
+      if (!state.currentAudio || !state.currentCell) return;
+      state.currentAudio.pause();
+      state.currentAudio.currentTime = 0;
+      onAudioEnded();
+      audioStatus.textContent = "прервано для ответа";
+    }
+
+    function applyScoreToWinner() {
+      const nameRaw = winnerSelect.value.trim();
+      if (!nameRaw) {
+        alert("Введите или выберите имя участника, либо нажмите «Никто не угадал».");
+        return;
+      }
+
+      if (!state.players.includes(nameRaw)) state.players.push(nameRaw);
+      if (!state.scores[nameRaw]) state.scores[nameRaw] = 0;
+      if (!state.guessedCounts[nameRaw]) state.guessedCounts[nameRaw] = 0;
+
+      state.scores[nameRaw] += state.currentCell.points;
+      state.guessedCounts[nameRaw] += 1;
+
+      state.currentCell.element.classList.add("disabled");
+      state.remainingCells = Math.max(0, state.remainingCells - 1);
+      updateGameCounters();
+      syncPlayersUI();
+
+      state.currentCell = null;
+      scoreDialog.close();
+      trackNameDialog.close();
+      checkGameFinished();
+      saveState();
+    }
+
+    function skipScoreForCell() {
+      if (state.currentCell) {
+        state.currentCell.element.classList.add("disabled");
+        state.remainingCells = Math.max(0, state.remainingCells - 1);
+        updateGameCounters();
+        state.currentCell = null;
+      }
+      scoreDialog.close();
+      trackNameDialog.close();
+      checkGameFinished();
+      saveState();
+    }
+
+    function stopAndSkip() {
+      if (state.currentAudio) {
+        state.currentAudio.pause();
+        state.currentAudio.currentTime = 0;
+      }
+      audioStatus.textContent = "остановлено";
+      skipScoreForCell();
+    }
+
+    function checkGameFinished() {
+      if (state.remainingCells <= 0) {
+        state.finished = true;
+        buildWinnersTable();
+        winnersSection.style.display = "block";
+        footerMessage.innerHTML = '<span style="color:#4caf50;font-weight:600;">Игра завершена.</span> Ниже отображена таблица победителей.';
+      }
+      saveState();
+    }
+
+    function showWinnersManually() {
+      buildWinnersTable();
+      winnersSection.style.display = "block";
+    }
+
+    function showPlayersDialog(initial = false) {
+      playersInput.value = state.players.join(", ");
+      playersDialog.dataset.initial = initial ? "1" : "0";
+      playersDialog.showModal();
+    }
+
+    function applyPlayers() {
+      const raw = playersInput.value.split(",").map(s => s.trim()).filter(Boolean);
+      state.players = Array.from(new Set(raw));
+      state.scores = {};
+      state.guessedCounts = {};
+      state.players.forEach((name) => {
+        state.scores[name] = 0;
+        state.guessedCounts[name] = 0;
+      });
+      syncPlayersUI();
+      playersDialog.close();
+      saveState();
+      if (!state.categories.some(Boolean)) showCategoriesDialog(true);
+    }
+
+    function cancelPlayersDialog() {
+      const isInitial = playersDialog.dataset.initial === "1";
+      playersDialog.close();
+      if (isInitial && state.players.length === 0) {
+        alert("Для удобства игры желательно зарегистрировать хотя бы одного участника.");
+      }
+    }
+
+    function showCategoriesDialog(initial = false) {
+      catInputs.forEach((input, idx) => input.value = state.categories[idx] || "");
+      categoriesDialog.dataset.initial = initial ? "1" : "0";
+      categoriesDialog.showModal();
+    }
+
+    function applyCategories() {
+      state.categories = catInputs.map(input => input.value.trim()).slice(0, 5);
+      renderCategoriesHeader();
+      categoriesDialog.close();
+      saveState();
+    }
+
+    function cancelCategoriesDialog() {
+      categoriesDialog.close();
+      saveState();
+    }
+
+    function renderTrackEditor() {
+      tracksList.innerHTML = "";
+      state.tracks.forEach((t, idx) => {
+        const row = document.createElement("div");
+        row.className = "track-row";
+        row.innerHTML = `
+          <div>
+            <div class="mini">Ячейка ${idx + 1}</div>
+            <input type="text" data-field="title" data-idx="${idx}" placeholder="Название трека" value="${escapeHtml(t.title || "")}">
+          </div>
+          <div>
+            <div class="mini">Ссылка/путь</div>
+            <input type="text" data-field="src" data-idx="${idx}" placeholder="music/track1.mp3" value="${escapeHtml(t.src || "")}">
+          </div>
+          <div>
+            <div class="mini">Рубрика</div>
+            <select data-field="category" data-idx="${idx}">
+              ${state.categories.map((c, i) => `<option value="${i}" ${i === Number(idx / 5 | 0) ? "selected" : ""}>${c || `Строка ${i + 1}`}</option>`).join("")}
+            </select>
+          </div>
+          <button class="btn btn-secondary remove-track" data-remove="${idx}">Удалить</button>
+        `;
+        tracksList.appendChild(row);
+      });
+    }
+
+    function openTrackDialog() {
+      renderTrackEditor();
+      trackDialog.showModal();
+    }
+
+    function addTrackRow() {
+      state.tracks.push({ title: "Новый трек", src: "" });
+      renderTrackEditor();
+    }
+
+    function saveTracksFromDialog() {
+      const rows = [...tracksList.querySelectorAll(".track-row")];
+      const next = rows.map((row, idx) => {
+        const title = row.querySelector('[data-field="title"]').value.trim();
+        const src = row.querySelector('[data-field="src"]').value.trim();
+        const category = Number(row.querySelector('[data-field="category"]').value || 0);
+        return { title: title || `Трек ${idx + 1}`, src, category };
+      });
+
+      while (next.length < 25) next.push({ title: `Трек ${next.length + 1}`, src: `music/track${next.length + 1}.mp3`, category: Math.floor(next.length / 5) });
+      state.tracks = next.slice(0, 25);
+      trackDialog.close();
+      initGrid();
+      saveState();
+    }
+
+    function loadSessionOrInit() {
+      const loaded = loadState();
+      if (loaded) {
+        syncPlayersUI();
+        renderCategoriesHeader();
+        cellsLeftEl.textContent = String(state.remainingCells);
+        if (state.finished) {
+          buildWinnersTable();
+          winnersSection.style.display = "block";
+        }
+        initGrid();
+        restoreDisabledCells();
+        updateAudioInfo();
+        refreshAudioUI();
+        return;
+      }
+      state.tracks = structuredClone(defaultTracks);
+      initGrid();
+      showPlayersDialog(true);
+    }
+
+    function restoreDisabledCells() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        const disabled = Array.isArray(data.disabledCells) ? data.disabledCells : [];
+        disabled.forEach((idx) => {
+          const cell = gameGrid.querySelector(`.cell[data-index="${idx}"]`);
+          if (cell) cell.classList.add("disabled");
+        });
+        if (typeof data.currentCellIndex === "number" && data.currentTrackSrc) {
+          const cell = gameGrid.querySelector(`.cell[data-index="${data.currentCellIndex}"]`);
+          if (cell) {
+            state.currentCell = {
+              element: cell,
+              points: Number(cell.dataset.points || 0),
+              index: data.currentCellIndex,
+              trackPath: data.currentTrackSrc,
+              trackTitle: data.currentTrackTitle || `Трек ${data.currentCellIndex + 1}`,
+              categoryIndex: Number(cell.dataset.categoryIndex || 0)
+            };
+            audioInfo.querySelector(".audio-title").textContent = `${state.currentCell.trackTitle} (возобновлено)`;
+          }
+        }
+      } catch {}
+    }
+
+    playersOk.addEventListener("click", applyPlayers);
+    playersCancel.addEventListener("click", cancelPlayersDialog);
+    categoriesOk.addEventListener("click", applyCategories);
+    categoriesCancel.addEventListener("click", cancelCategoriesDialog);
+
+    scoreOk.addEventListener("click", applyScoreToWinner);
+    scoreSkip.addEventListener("click", skipScoreForCell);
+    scoreReplay.addEventListener("click", replayCurrentTrack);
+    scoreCloseAudio.addEventListener("click", stopAndSkip);
+
+    btnRestart.addEventListener("click", () => {
+      if (confirm("Начать новую партию? Текущее поле и счёт будут сброшены.")) {
+        localStorage.removeItem(STORAGE_KEY);
+        state.players = [];
+        state.scores = {};
+        state.guessedCounts = {};
+        state.remainingCells = 25;
+        state.finished = false;
+        state.currentCell = null;
+        state.currentAudio = null;
+        state.categories = [];
+        state.tracks = structuredClone(defaultTracks);
+        syncPlayersUI();
+        renderCategoriesHeader();
+        initGrid();
+        showPlayersDialog(true);
+      }
+    });
+
+    btnShowWinners.addEventListener("click", showWinnersManually);
+    btnManageTracks.addEventListener("click", openTrackDialog);
+    tracksAdd.addEventListener("click", addTrackRow);
+    tracksClose.addEventListener("click", () => trackDialog.close());
+    tracksSave.addEventListener("click", saveTracksFromDialog);
+
+    audioPlay.addEventListener("click", () => {
+      if (state.currentAudio) {
+        state.currentAudio.play().then(() => audioStatus.textContent = "играет").catch(() => audioStatus.textContent = "ошибка воспроизведения");
+      }
+    });
+    audioPause.addEventListener("click", () => {
+      if (state.currentAudio) {
+        state.currentAudio.pause();
+        audioStatus.textContent = "пауза";
+        saveState();
+      }
+    });
+    audioStop.addEventListener("click", () => stopCurrentAudio(true));
+    audioReplayBtn.addEventListener("click", replayCurrentTrack);
+    audioGuessEarly.addEventListener("click", guessEarly);
+
+    volumeRange.addEventListener("input", () => {
+      state.volume = Number(volumeRange.value) / 100;
+      if (state.currentAudio) state.currentAudio.volume = state.volume;
+      saveState();
+    });
+
+    trackNameOk.addEventListener("click", () => trackNameDialog.close());
+
+    document.addEventListener("click", (e) => {
+      const remove = e.target.closest("[data-remove]");
+      if (!remove) return;
+      const idx = Number(remove.dataset.remove);
+      state.tracks.splice(idx, 1);
+      while (state.tracks.length < 25) state.tracks.push({ title: `Трек ${state.tracks.length + 1}`, src: `music/track${state.tracks.length + 1}.mp3` });
+      renderTrackEditor();
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadSessionOrInit();
+      updateAudioInfo();
+      refreshAudioUI();
+      syncPlayersUI();
+      renderCategoriesHeader();
+      updateGameCounters();
+      saveState();
+    });
+  </script>
+</body>
+</html>
