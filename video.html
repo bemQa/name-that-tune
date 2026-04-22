@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Магия кино</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: rgba(10, 16, 35, 0.92);
+      --accent: #ffcc33;
+      --accent2: #ff9800;
+      --text: #f5f5f5;
+      --muted: #9aa0c0;
+      --success: #4caf50;
+      --border: #2c3450;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at top, #1b2340 0, #050815 60%, #02030a 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+    }
+    .app { width: 100%; max-width: 1380px; display: flex; flex-direction: column; gap: 16px; }
+    header, .panel {
+      background: var(--card);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+    }
+    header {
+      display: flex; justify-content: space-between; align-items: center; gap: 16px;
+      padding: 12px 16px;
+    }
+    header h1 { font-size: 1.35rem; letter-spacing: .04em; text-transform: uppercase; }
+    .summary { text-align: right; color: var(--muted); font-size: .9rem; }
+    .summary span { color: var(--accent); font-weight: 700; }
+    .main { display: grid; grid-template-columns: 2.1fr 1.15fr; gap: 16px; align-items: start; }
+    .panel { padding: 16px; }
+    .board-title {
+      display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
+      color: var(--muted); margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .board-title strong { color: var(--accent); }
+    #categoriesHeader { color: var(--muted); font-size: .9rem; line-height: 1.45; margin-bottom: 8px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-auto-rows: 100px;
+      gap: 10px;
+    }
+    .cell {
+      position: relative; border-radius: 10px; border: 2px solid #2d3555;
+      background: linear-gradient(135deg, #1f2844, #151b30);
+      color: var(--accent); font-weight: 800; font-size: 2rem; cursor: pointer;
+      text-shadow: 0 0 10px rgba(0,0,0,.8); transition: transform .12s, box-shadow .12s, border-color .12s;
+      user-select: none;
+    }
+    .cell:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0,0,0,.75); border-color: var(--accent); }
+    .cell.disabled {
+      background: linear-gradient(135deg, #202535, #151827); color: #667; border-color: #262b3f;
+      cursor: default; box-shadow: none; text-shadow: none;
+    }
+    .cell.disabled::after {
+      content: "✓"; position: absolute; right: 8px; bottom: 4px; color: var(--success); font-size: 1.1rem;
+    }
+    .cell-label {
+      position: absolute; top: 6px; left: 8px; right: 8px; font-size: .56rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em; overflow: hidden; white-space: nowrap;
+      text-overflow: ellipsis; text-align: left;
+    }
+    .sidebar-section { margin-bottom: 16px; }
+    .sidebar-section:last-child { margin-bottom: 0; }
+    .sidebar-section h2 { color: var(--accent); font-size: 1rem; margin-bottom: 8px; }
+    .media-info { color: var(--muted); font-size: .9rem; min-height: 5.2em; }
+    .media-title { color: var(--text); font-weight: 700; margin-bottom: 4px; line-height: 1.35; }
+    .media-sub { margin-top: 4px; color: var(--muted); font-size: .85rem; }
+    .media-progress-wrap { margin-top: 6px; display: grid; gap: 6px; }
+    .media-progress-bar {
+      width: 100%; height: 8px; border-radius: 999px; overflow: hidden;
+      background: #0a0f20; border: 1px solid var(--border);
+    }
+    .media-progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+    .media-progress-text { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); }
+    .media-controls { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .media-volume { margin-top: 10px; display: grid; gap: 6px; }
+    .media-volume label { color: var(--muted); font-size: .8rem; }
+    .media-volume input[type="range"] { width: 100%; }
+    .media-status { margin-top: 4px; color: var(--muted); font-size: .85rem; }
+    .media-status span { font-weight: 700; }
+    .scores-table, .winners-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .scores-table th, .scores-table td, .winners-table th, .winners-table td { padding: 4px 6px; text-align: left; }
+    .scores-table th, .winners-table th { color: var(--muted); border-bottom: 1px solid #2a314a; font-weight: 600; }
+    .scores-table td, .winners-table td { border-bottom: 1px solid #1a2035; }
+    .scores-table tr.best td { color: var(--success); font-weight: 700; }
+    .scores-empty { color: var(--muted); font-size: .9rem; }
+    .footer-message { margin-top: 6px; font-size: .85rem; color: var(--muted); }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; padding: 6px 12px;
+      border: none; border-radius: 20px; cursor: pointer; font-size: .85rem; font-weight: 700;
+      letter-spacing: .05em; text-transform: uppercase; color: #201308;
+      background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 4px 12px rgba(0,0,0,.5);
+    }
+    .btn-secondary {
+      background: transparent; border: 1px solid #39415f; color: var(--muted); box-shadow: none;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    dialog {
+      inset: 0; margin: auto;
+      border: none; border-radius: 16px; background: #111629; color: var(--text);
+      padding: 16px 18px 14px; max-width: 620px; width: 92%; box-shadow: 0 18px 45px rgba(0,0,0,.85);
+    }
+    dialog::backdrop { background: rgba(3,5,12,.75); backdrop-filter: blur(8px); }
+    .dialog-title { font-size: 1.1rem; margin-bottom: 8px; color: var(--accent); }
+    .dialog-body { font-size: .95rem; margin-bottom: 12px; color: var(--muted); line-height: 1.45; }
+    .dialog-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .dialog-row label { color: var(--muted); font-size: .85rem; }
+    .dialog-row input, .dialog-row select, .dialog-row textarea {
+      padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border);
+      background: #060816; color: var(--text); font-size: .95rem; outline: none;
+    }
+    .dialog-row input:focus, .dialog-row select:focus, .dialog-row textarea:focus { border-color: var(--accent); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .winner-table-wrapper {
+      margin-top: 10px; max-height: 260px; overflow: auto; border-radius: 10px; border: 1px solid #262d46;
+      padding: 6px; background: #080c1a;
+    }
+    .winner-badge {
+      display: inline-block; padding: 2px 6px; border-radius: 999px; border: 1px solid #384266;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-size: .72rem;
+    }
+    .tracks-list { display: grid; gap: 10px; max-height: 56vh; overflow: auto; padding-right: 2px; }
+    .track-row {
+      display: grid; grid-template-columns: 1fr 1.35fr 0.95fr; gap: 8px; align-items: end;
+      padding: 8px; border: 1px solid #29324f; border-radius: 12px; background: #0a1020;
+    }
+    .mini { color: var(--muted); font-size: .72rem; margin-bottom: 4px; }
+    .player-stage {
+      margin-top: 12px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #050816;
+      border: 1px solid #29324f;
+    }
+    .player-screen {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      display: block;
+    }
+    .player-placeholder {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; aspect-ratio: 16 / 9;
+      color: var(--muted); font-size: .95rem; text-align: center; padding: 18px;
+      background: linear-gradient(135deg, #060816, #10172b);
+    }
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; }
+      .panel { padding: 12px; }
+      .track-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      body { padding: 8px; }
+      header { flex-direction: column; align-items: flex-start; }
+      header h1 { font-size: 1.1rem; }
+      .grid { grid-auto-rows: 64px; gap: 6px; }
+      .cell { font-size: 1.35rem; }
+      .cell-label { font-size: .5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Магия кино</h1>
+      <div class="summary">Участники: <span id="playersCount">0</span><br>Активных кнопок: <span id="cellsLeft">25</span> / 25</div>
+    </header>
+
+    <div class="main">
+      <section class="panel">
+        <div class="board-title">
+          <div>Выберите ячейку на поле, чтобы запустить видео.</div>
+          <div><strong>Сетка 5 × 5</strong></div>
+        </div>
+        <div id="categoriesHeader">Рубрики не заданы.</div>
+        <div class="grid" id="gameGrid"></div>
+      </section>
+
+      <aside class="panel">
+        <div class="sidebar-section">
+          <h2>Текущее видео</h2>
+          <div class="media-info" id="mediaInfo"></div>
+          <div class="media-controls">
+            <button class="btn btn-secondary" id="mediaPlay">Play</button>
+            <button class="btn btn-secondary" id="mediaPause">Pause</button>
+            <button class="btn btn-secondary" id="mediaStop">Stop</button>
+            <button class="btn btn-secondary" id="mediaReplay">Повтор</button>
+            <button class="btn btn-secondary" id="mediaGuessEarly">Отгадал</button>
+          </div>
+          <div class="media-volume">
+            <label for="volumeRange">Громкость</label>
+            <input id="volumeRange" type="range" min="0" max="100" value="100">
+          </div>
+          <div class="media-status">Статус: <span id="mediaStatus">ожидание</span></div>
+          <div class="player-stage" id="mediaStage">
+            <div class="player-placeholder">Видео появится здесь после выбора ячейки.</div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Счёт участников</h2>
+          <table class="scores-table">
+            <thead><tr><th>Игрок</th><th>Баллы</th><th>Угадано</th></tr></thead>
+            <tbody id="scoresBody"><tr><td colspan="3" class="scores-empty">Зарегистрируйте игроков перед началом игры.</td></tr></tbody>
+          </table>
+          <div class="footer-message" id="footerMessage">После окончания игры автоматически появится таблица победителей.</div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Управление игрой</h2>
+          <button class="btn" id="btnRestart">Новая партия</button>
+          <button class="btn btn-secondary" id="btnShowWinners" style="margin-left:8px;">Показать итоговую таблицу</button>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Видео и рубрики</h2>
+          <button class="btn btn-secondary" id="btnManageTracks">Настроить видео</button>
+          <button class="btn btn-secondary" id="btnManageCategories" style="margin-left:8px;">Настроить рубрики</button>
+        </div>
+
+        <div class="sidebar-section" id="winnersSection" style="display:none;">
+          <h2>Итоги игры</h2>
+          <div class="winner-table-wrapper">
+            <table class="winners-table">
+              <thead><tr><th>Место</th><th>Игрок</th><th>Баллы</th></tr></thead>
+              <tbody id="winnersBody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:6px;"><span class="winner-badge" id="winnerBadge">Победитель: —</span></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <dialog id="playersDialog">
+    <div class="dialog-title">Регистрация участников</div>
+    <div class="dialog-body">Введите имена игроков через запятую.</div>
+    <div class="dialog-row"><label for="playersInput">Имена участников:</label><input id="playersInput" type="text" placeholder="Игрок 1, Игрок 2, Игрок 3"></div>
+    <div class="dialog-actions"><button class="btn btn-secondary" id="playersCancel">Отмена</button><button class="btn" id="playersOk">Сохранить</button></div>
+  </dialog>
+
+  <dialog id="categoriesDialog">
+    <div class="dialog-title">Рубрики для строк</div>
+    <div class="dialog-body">Укажите названия рубрик для 5 строк.</div>
+    <div class="dialog-row"><label>Строка 1</label><input id="cat1" type="text" placeholder="Фильмы"></div>
+    <div class="dialog-row"><label>Строка 2</label><input id="cat2" type="text" placeholder="Сериалы"></div>
+    <div class="dialog-row"><label>Строка 3</label><input id="cat3" type="text" placeholder="Мультики"></div>
+    <div class="dialog-row"><label>Строка 4</label><input id="cat4" type="text" placeholder="Аниме"></div>
+    <div class="dialog-row"><label>Строка 5</label><input id="cat5" type="text" placeholder="Разное"></div>
+    <div class="dialog-actions"><button class="btn btn-secondary" id="categoriesCancel">Отмена</button><button class="btn" id="categoriesOk">Сохранить рубрики</button></div>
+  </dialog>
+
+  <dialog id="scoreDialog">
+    <div class="dialog-title">Кто угадал?</div>
+    <div class="dialog-body">Можно повторить видео, остановить его раньше или сразу указать победителя.</div>
+    <div class="dialog-row">
+      <label for="winnerSelect">Участник:</label>
+      <input list="playersList" id="winnerSelect" placeholder="Выберите или введите">
+      <datalist id="playersList"></datalist>
+    </div>
+    <div class="dialog-row"><label id="pointsInfo">Баллы за эту ячейку: 0</label></div>
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" id="scoreReplay" style="margin-right:auto;">Ещё раз</button>
+      <button class="btn btn-secondary" id="scoreSkip">Никто не угадал</button>
+      <button class="btn btn-secondary" id="scoreCloseMedia">Стоп видео</button>
+      <button class="btn" id="scoreOk">Начислить баллы</button>
+    </div>
+  </dialog>
+
+  <dialog id="trackDialog">
+    <div class="dialog-title">Настройка видео</div>
+    <div class="dialog-body">Укажите название, тип и источник видео. Поддерживаются прямые ссылки на файл и YouTube.</div>
+    <div class="tracks-list" id="tracksList"></div>
+    <div class="dialog-actions"><button class="btn btn-secondary" id="tracksClose">Закрыть</button><button class="btn" id="tracksSave">Сохранить</button></div>
+  </dialog>
+
+  <dialog id="trackNameDialog">
+    <div class="dialog-title">Название видео</div>
+    <div class="dialog-body" id="trackNameBody"></div>
+    <div class="dialog-actions"><button class="btn" id="trackNameOk">OK</button></div>
+  </dialog>
+
+  <script>
+    const STORAGE_KEY = "magicCinemaGameState_v2";
+    const TOTAL = 25;
+    const defaultTracks = Array.from({ length: TOTAL }, (_, i) => ({
+      title: `Видео ${i + 1}`,
+      src: `videos/video${i + 1}.mp4`,
+      type: "file"
+    }));
+
+    const state = {
+      players: [],
+      scores: {},
+      guessedCounts: {},
+      categories: [],
+      tracks: structuredClone(defaultTracks),
+      remaining: TOTAL,
+      finished: false,
+      current: null,
+      media: null,
+      volume: 1,
+      restored: null,
+      youtubeScriptLoading: false,
+      youtubePlayer: null,
+      youtubeReady: false
+    };
+
+    let pendingTrackTitle = "";
+
+    const $ = (id) => document.getElementById(id);
+    const el = {
+      gameGrid: $("gameGrid"), playersCount: $("playersCount"), cellsLeft: $("cellsLeft"), scoresBody: $("scoresBody"),
+      mediaInfo: $("mediaInfo"), mediaStatus: $("mediaStatus"), mediaPlay: $("mediaPlay"), mediaPause: $("mediaPause"),
+      mediaStop: $("mediaStop"), mediaReplay: $("mediaReplay"), mediaGuessEarly: $("mediaGuessEarly"), volumeRange: $("volumeRange"),
+      footerMessage: $("footerMessage"), categoriesHeader: $("categoriesHeader"), winnersSection: $("winnersSection"),
+      winnersBody: $("winnersBody"), winnerBadge: $("winnerBadge"), playersDialog: $("playersDialog"), playersInput: $("playersInput"),
+      playersOk: $("playersOk"), playersCancel: $("playersCancel"), categoriesDialog: $("categoriesDialog"), categoriesOk: $("categoriesOk"),
+      categoriesCancel: $("categoriesCancel"), scoreDialog: $("scoreDialog"), winnerSelect: $("winnerSelect"), playersList: $("playersList"),
+      scoreOk: $("scoreOk"), scoreSkip: $("scoreSkip"), scoreReplay: $("scoreReplay"), scoreCloseMedia: $("scoreCloseMedia"),
+      pointsInfo: $("pointsInfo"), btnRestart: $("btnRestart"), btnShowWinners: $("btnShowWinners"), btnManageTracks: $("btnManageTracks"),
+      btnManageCategories: $("btnManageCategories"), trackDialog: $("trackDialog"), tracksList: $("tracksList"), tracksClose: $("tracksClose"),
+      tracksSave: $("tracksSave"), trackNameDialog: $("trackNameDialog"), trackNameBody: $("trackNameBody"), trackNameOk: $("trackNameOk"),
+      catInputs: [ $("cat1"), $("cat2"), $("cat3"), $("cat4"), $("cat5") ],
+      mediaStage: $("mediaStage")
+    };
+
+    function esc(s) { return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
+    function padTime(v) { if (!Number.isFinite(v) || v < 0) return "0:00"; const m = Math.floor(v / 60); const s = Math.floor(v % 60); return `${m}:${String(s).padStart(2, "0")}`; }
+    function isYoutube(src) { return /youtu\.be|youtube\.com/i.test(src || ""); }
+
+    function extractYoutubeId(src) {
+      const s = String(src || "").trim();
+      const m1 = s.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
+      if (m1) return m1[1];
+      const m2 = s.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
+      if (m2) return m2[1];
+      const m3 = s.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/);
+      if (m3) return m3[1];
+      return s.length >= 6 ? s : "";
+    }
+
+    function stopCurrentMedia() {
+      if (state.media?.kind === "file" && state.media.el) {
+        state.media.el.pause();
+        state.media.el.currentTime = 0;
+      }
+      if (state.media?.kind === "youtube" && state.youtubePlayer) {
+        try { state.youtubePlayer.pauseVideo(); state.youtubePlayer.stopVideo(); } catch {}
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        players: state.players,
+        scores: state.scores,
+        guessedCounts: state.guessedCounts,
+        categories: state.categories,
+        tracks: state.tracks,
+        remaining: state.remaining,
+        finished: state.finished,
+        volume: state.volume,
+        disabled: [...el.gameGrid.querySelectorAll(".cell.disabled")].map((c) => Number(c.dataset.index)),
+        current: state.current ? {
+          index: state.current.index,
+          points: state.current.points,
+          trackTitle: state.current.trackTitle,
+          trackPath: state.current.trackPath,
+          trackType: state.current.trackType
+        } : null,
+        currentTime: state.media?.kind === "file" && state.media.el ? state.media.el.currentTime : 0
+      }));
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      try {
+        const d = JSON.parse(raw);
+        state.players = Array.isArray(d.players) ? d.players : [];
+        state.scores = d.scores || {};
+        state.guessedCounts = d.guessedCounts || {};
+        state.categories = Array.isArray(d.categories) ? d.categories : [];
+        state.tracks = Array.isArray(d.tracks) && d.tracks.length === TOTAL ? d.tracks : structuredClone(defaultTracks);
+        state.remaining = Number.isFinite(d.remaining) ? d.remaining : TOTAL;
+        state.finished = !!d.finished;
+        state.volume = typeof d.volume === "number" ? d.volume : 1;
+        state.restored = {
+          disabled: Array.isArray(d.disabled) ? d.disabled : [],
+          current: d.current || null,
+          currentTime: Number.isFinite(d.currentTime) ? d.currentTime : 0
+        };
+        el.volumeRange.value = String(Math.round(state.volume * 100));
+        return true;
+      } catch { return false; }
+    }
+
+    function updateSummary() {
+      el.playersCount.textContent = String(state.players.length);
+      el.cellsLeft.textContent = String(state.remaining);
+    }
+
+    function updateScores() {
+      if (!state.players.length) {
+        el.scoresBody.innerHTML = `<tr><td colspan="3" class="scores-empty">Участники не зарегистрированы.</td></tr>`;
+        return;
+      }
+      const ordered = [...state.players].sort((a, b) => (state.scores[b] || 0) - (state.scores[a] || 0));
+      const top = state.scores[ordered[0]] || 0;
+      el.scoresBody.innerHTML = ordered.map((name) =>
+        `<tr class="${(state.scores[name] || 0) === top && top > 0 ? "best" : ""}"><td>${esc(name)}</td><td>${state.scores[name] || 0}</td><td>${state.guessedCounts[name] || 0}</td></tr>`
+      ).join("");
+    }
+
+    function updateWinners() {
+      const entries = Object.entries(state.scores).sort((a, b) => b[1] - a[1]);
+      if (!entries.length) {
+        el.winnersBody.innerHTML = `<tr><td colspan="3">Нет данных по очкам.</td></tr>`;
+        el.winnerBadge.textContent = "Победитель: —";
+        return;
+      }
+      el.winnersBody.innerHTML = entries.map(([name, score], i) => `<tr><td>${i + 1}</td><td>${esc(name)}</td><td>${score}</td></tr>`).join("");
+      el.winnerBadge.textContent = `Победитель: ${entries[0][0]} (${entries[0][1]} балл(ов))`;
+    }
+
+    function updateCategoriesHeader() {
+      el.categoriesHeader.textContent = state.categories.some(Boolean)
+        ? state.categories.map((c, i) => `Строка ${i + 1}: ${c || "—"}`).join(" | ")
+        : "Рубрики не заданы.";
+    }
+
+    function syncProgress() {
+      const fill = document.getElementById("mediaProgressFill");
+      const cur = document.getElementById("mediaTimeCurrent");
+      const tot = document.getElementById("mediaTimeTotal");
+      if (!fill || !cur || !tot) return;
+      const dur = state.media?.kind === "file"
+        ? (state.media.el?.duration || 0)
+        : (state.media?.kind === "youtube" ? (state.youtubePlayer?.getDuration?.() || 0) : 0);
+      const time = state.media?.kind === "file"
+        ? (state.media.el?.currentTime || 0)
+        : (state.media?.kind === "youtube" ? (state.youtubePlayer?.getCurrentTime?.() || 0) : 0);
+      fill.style.width = dur ? `${Math.min(100, (time / dur) * 100)}%` : "0%";
+      cur.textContent = padTime(time);
+      tot.textContent = padTime(dur);
+    }
+
+    function ensureYouTubeAPI() {
+      return new Promise((resolve) => {
+        if (window.YT && window.YT.Player) return resolve();
+        if (window.__ytApiLoading) {
+          const t = setInterval(() => {
+            if (window.YT && window.YT.Player) { clearInterval(t); resolve(); }
+          }, 100);
+          return;
+        }
+        window.__ytApiLoading = true;
+        window.onYouTubeIframeAPIReady = () => resolve();
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+      });
+    }
+
+    function renderMediaPlaceholder() {
+      el.mediaStage.innerHTML = `<div class="player-placeholder">Видео появится здесь после выбора ячейки.</div>`;
+    }
+
+    function updateMediaInfo() {
+      if (!state.current) {
+        el.mediaInfo.innerHTML = `
+          <div class="media-title">Пока ничего не играет.</div>
+          <div class="media-progress-wrap">
+            <div class="media-progress-bar"><div class="media-progress-fill" id="mediaProgressFill"></div></div>
+            <div class="media-progress-text"><span id="mediaTimeCurrent">0:00</span><span id="mediaTimeTotal">0:00</span></div>
+          </div>`;
+        return;
+      }
+      const rowNumber = Number(state.current.element?.dataset.category) + 1;
+      const cellNumber = Number(state.current.element?.dataset.points);
+      const label = `Строка ${rowNumber} Ячейка ${cellNumber}`;
+      const kindText = state.current.trackType === "youtube" ? "YouTube" : "Файл";
+      el.mediaInfo.innerHTML = `
+        <div class="media-title">${esc(label)}</div>
+        <div class="media-sub">${esc(kindText)} · ${esc(state.current.trackTitle || "")}</div>
+        <div class="media-progress-wrap">
+          <div class="media-progress-bar"><div class="media-progress-fill" id="mediaProgressFill"></div></div>
+          <div class="media-progress-text"><span id="mediaTimeCurrent">0:00</span><span id="mediaTimeTotal">0:00</span></div>
+        </div>`;
+    }
+
+    function renderGrid() {
+      el.gameGrid.innerHTML = "";
+      for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 5; col++) {
+          const index = row * 5 + col;
+          const points = col + 1;
+          const track = state.tracks[index] || { title: `Видео ${index + 1}`, src: "", type: "file" };
+          const btn = document.createElement("button");
+          btn.className = "cell";
+          btn.dataset.index = index;
+          btn.dataset.points = points;
+          btn.dataset.category = row;
+          btn.dataset.src = track.src || "";
+          btn.dataset.title = track.title || `Видео ${index + 1}`;
+          btn.dataset.type = track.type || "file";
+          const cat = state.categories[row] || "";
+          btn.innerHTML = `<span class="cell-label">${cat ? `${cat} • ` : ""}${points} балл(ов)</span>${points}`;
+          btn.addEventListener("click", onCellClick);
+          el.gameGrid.appendChild(btn);
+        }
+      }
+      restoreDisabledCells();
+    }
+
+    function restoreDisabledCells() {
+      (state.restored?.disabled || []).forEach((idx) => {
+        const cell = el.gameGrid.querySelector(`.cell[data-index="${idx}"]`);
+        if (cell) cell.classList.add("disabled");
+      });
+      if (state.restored?.current) {
+        const c = state.restored.current;
+        const cell = el.gameGrid.querySelector(`.cell[data-index="${c.index}"]`);
+        if (cell) state.current = { element: cell, index: c.index, points: c.points, trackTitle: c.trackTitle, trackPath: c.trackPath, trackType: c.trackType || "file" };
+      }
+    }
+
+    function setCurrentMediaFromCell(cell) {
+      state.current = {
+        element: cell,
+        index: Number(cell.dataset.index),
+        points: Number(cell.dataset.points),
+        trackTitle: cell.dataset.title || `Видео ${cell.dataset.index}`,
+        trackPath: cell.dataset.src || "",
+        trackType: cell.dataset.type || "file"
+      };
+    }
+
+    async function playTrack(cell) {
+      const src = cell.dataset.src;
+      const type = cell.dataset.type || "file";
+      if (!src) return alert("Для этой ячейки не задано видео.");
+
+      stopCurrentMedia();
+      setCurrentMediaFromCell(cell);
+      updateMediaInfo();
+      el.mediaStatus.textContent = "играет";
+
+      if (type === "youtube") {
+        const videoId = extractYoutubeId(src);
+        if (!videoId) {
+          el.mediaStatus.textContent = "ошибка источника YouTube";
+          return;
+        }
+        el.mediaStage.innerHTML = `<div id="youtubePlayer" class="player-screen"></div>`;
+        await ensureYouTubeAPI();
+        state.youtubePlayer = new YT.Player("youtubePlayer", {
+          height: "100%",
+          width: "100%",
+          videoId,
+          playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 },
+          events: {
+            onReady: (e) => {
+              e.target.setVolume(Math.round(state.volume * 100));
+              e.target.playVideo();
+            },
+            onStateChange: () => syncProgress()
+          }
+        });
+        saveState();
+        return;
+      }
+
+      const video = document.createElement("video");
+      video.className = "player-screen";
+      video.controls = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+      video.src = src;
+      video.volume = state.volume;
+      video.addEventListener("loadedmetadata", syncProgress);
+      video.addEventListener("timeupdate", syncProgress);
+      video.addEventListener("ended", onMediaEnded);
+
+      el.mediaStage.innerHTML = "";
+      el.mediaStage.appendChild(video);
+      state.media = { kind: "file", el: video };
+      video.play().catch(() => el.mediaStatus.textContent = "ошибка воспроизведения");
+      saveState();
+    }
+
+    function onCellClick(e) {
+      const cell = e.currentTarget;
+      if (cell.classList.contains("disabled") || state.finished) return;
+      playTrack(cell);
+    }
+
+    function showTrackNameDialog(trackTitle) {
+      pendingTrackTitle = trackTitle || "—";
+      if (el.scoreDialog.open) {
+        el.scoreDialog.close();
+        return;
+      }
+      el.trackNameBody.textContent = `Название видео: ${pendingTrackTitle}`;
+      if (!el.trackNameDialog.open) el.trackNameDialog.showModal();
+    }
+
+    el.scoreDialog.addEventListener("close", () => {
+      if (!pendingTrackTitle) return;
+      const title = pendingTrackTitle;
+      pendingTrackTitle = "";
+      el.trackNameBody.textContent = `Название видео: ${title}`;
+      if (!el.trackNameDialog.open) el.trackNameDialog.showModal();
+    });
+
+    el.trackNameDialog.addEventListener("close", () => {
+      pendingTrackTitle = "";
+    });
+
+    function openGuessDialog() {
+      el.pointsInfo.textContent = `Баллы за эту ячейку: ${state.current?.points || 0}`;
+      el.winnerSelect.value = "";
+      el.playersList.innerHTML = state.players.map((n) => `<option value="${esc(n)}"></option>`).join("");
+      if (!el.scoreDialog.open) el.scoreDialog.showModal();
+    }
+
+    function onMediaEnded() {
+      el.mediaStatus.textContent = "завершено";
+      syncProgress();
+      if (state.current) {
+        showTrackNameDialog(state.current.trackTitle || state.tracks[state.current.index]?.title);
+        openGuessDialog();
+      }
+      saveState();
+    }
+
+    function finalizeCell(pointsToAdd = 0, winnerName = "") {
+      const c = state.current;
+      if (!c) return;
+
+      if (winnerName) {
+        if (!state.players.includes(winnerName)) state.players.push(winnerName);
+        state.scores[winnerName] = (state.scores[winnerName] || 0) + pointsToAdd;
+        state.guessedCounts[winnerName] = (state.guessedCounts[winnerName] || 0) + 1;
+      }
+
+      c.element.classList.add("disabled");
+      state.remaining = Math.max(0, state.remaining - 1);
+      state.current = null;
+      stopCurrentMedia();
+      updateSummary();
+      updateScores();
+      updateWinners();
+      checkFinished();
+      saveState();
+    }
+
+    function applyWinner() {
+      const name = el.winnerSelect.value.trim();
+      if (!name) return alert("Введите или выберите имя участника.");
+      const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
+      finalizeCell(state.current?.points || 0, name);
+      showTrackNameDialog(title);
+      el.scoreDialog.close();
+    }
+
+    function skipWinner() {
+      const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
+      finalizeCell(0, "");
+      showTrackNameDialog(title);
+      el.scoreDialog.close();
+    }
+
+    function stopOnly() {
+      stopCurrentMedia();
+      el.mediaStatus.textContent = "пауза";
+      syncProgress();
+      saveState();
+    }
+
+    function earlyGuess() {
+      if (!state.media || !state.current) return;
+      stopCurrentMedia();
+      el.mediaStatus.textContent = "прервано для ответа";
+      showTrackNameDialog(state.current.trackTitle || state.tracks[state.current.index]?.title);
+      openGuessDialog();
+      saveState();
+    }
+
+    function replayTrack() {
+      if (!state.current) return;
+      playTrack(state.current.element);
+    }
+
+    function checkFinished() {
+      if (state.remaining <= 0) {
+        state.finished = true;
+        el.winnersSection.style.display = "block";
+        el.footerMessage.innerHTML = '<span style="color:#4caf50;font-weight:600;">Игра завершена.</span> Ниже отображена таблица победителей.';
+      }
+    }
+
+    function showPlayersDialog(initial = false) {
+      el.playersInput.value = state.players.join(", ");
+      el.playersDialog.dataset.initial = initial ? "1" : "0";
+      el.playersDialog.showModal();
+    }
+
+    function applyPlayers() {
+      state.players = el.playersInput.value.split(",").map((s) => s.trim()).filter(Boolean);
+      state.scores = {};
+      state.guessedCounts = {};
+      state.players.forEach((n) => { state.scores[n] = 0; state.guessedCounts[n] = 0; });
+      updateScores();
+      el.playersDialog.close();
+      saveState();
+      if (!state.categories.some(Boolean)) showCategoriesDialog(true);
+    }
+
+    function showCategoriesDialog(initial = false) {
+      el.catInputs.forEach((inp, i) => inp.value = state.categories[i] || "");
+      el.categoriesDialog.dataset.initial = initial ? "1" : "0";
+      el.categoriesDialog.showModal();
+    }
+
+    function applyCategories() {
+      state.categories = el.catInputs.map((i) => i.value.trim());
+      updateCategoriesHeader();
+      renderGrid();
+      el.categoriesDialog.close();
+      saveState();
+    }
+
+    function openTrackDialog() {
+      el.tracksList.innerHTML = "";
+      state.tracks.forEach((t, i) => {
+        const row = document.createElement("div");
+        row.className = "track-row";
+        row.innerHTML = `
+          <div>
+            <div class="mini">Ячейка ${i + 1}</div>
+            <input type="text" data-f="title" data-i="${i}" value="${esc(t.title || "")}" placeholder="Название видео">
+          </div>
+          <div>
+            <div class="mini">Источник</div>
+            <input type="text" data-f="src" data-i="${i}" value="${esc(t.src || "")}" placeholder="https://... или /video.mp4">
+          </div>
+          <div>
+            <div class="mini">Тип</div>
+            <select data-f="type" data-i="${i}">
+              <option value="file" ${t.type === "file" ? "selected" : ""}>Файл</option>
+              <option value="youtube" ${t.type === "youtube" ? "selected" : ""}>YouTube</option>
+            </select>
+          </div>
+        `;
+        el.tracksList.appendChild(row);
+      });
+      el.trackDialog.showModal();
+    }
+
+    function saveTracks() {
+      const rows = [...el.tracksList.querySelectorAll(".track-row")];
+      const next = rows.map((row, i) => ({
+        title: row.querySelector('[data-f="title"]').value.trim() || `Видео ${i + 1}`,
+        src: row.querySelector('[data-f="src"]').value.trim() || `videos/video${i + 1}.mp4`,
+        type: row.querySelector('[data-f="type"]').value || "file"
+      }));
+      while (next.length < TOTAL) next.push({ title: `Видео ${next.length + 1}`, src: `videos/video${next.length + 1}.mp4`, type: "file" });
+      state.tracks = next.slice(0, TOTAL);
+      renderGrid();
+      el.trackDialog.close();
+      saveState();
+    }
+
+    function restartGame() {
+      if (!confirm("Начать новую партию?")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      stopCurrentMedia();
+      state.players = [];
+      state.scores = {};
+      state.guessedCounts = {};
+      state.categories = [];
+      state.tracks = structuredClone(defaultTracks);
+      state.remaining = TOTAL;
+      state.finished = false;
+      state.current = null;
+      state.restored = null;
+      pendingTrackTitle = "";
+      updateCategoriesHeader();
+      renderGrid();
+      updateScores();
+      updateWinners();
+      updateSummary();
+      updateMediaInfo();
+      el.mediaStatus.textContent = "ожидание";
+      renderMediaPlaceholder();
+      showPlayersDialog(true);
+    }
+
+    function init() {
+      const restored = loadState();
+      updateCategoriesHeader();
+      renderGrid();
+      updateSummary();
+      updateScores();
+      updateWinners();
+      updateMediaInfo();
+      syncProgress();
+      if (restored) {
+        if (state.finished) el.winnersSection.style.display = "block";
+      } else {
+        showPlayersDialog(true);
+      }
+      saveState();
+    }
+
+    el.playersOk.addEventListener("click", applyPlayers);
+    el.playersCancel.addEventListener("click", () => el.playersDialog.close());
+    el.categoriesOk.addEventListener("click", applyCategories);
+    el.categoriesCancel.addEventListener("click", () => el.categoriesDialog.close());
+    el.scoreOk.addEventListener("click", () => {
+      const name = el.winnerSelect.value.trim();
+      if (!name) return alert("Введите или выберите имя участника.");
+      const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
+      finalizeCell(state.current?.points || 0, name);
+      showTrackNameDialog(title);
+      el.scoreDialog.close();
+    });
+    el.scoreSkip.addEventListener("click", () => {
+      const title = state.current?.trackTitle || state.tracks[state.current?.index]?.title || "—";
+      finalizeCell(0, "");
+      showTrackNameDialog(title);
+      el.scoreDialog.close();
+    });
+    el.scoreReplay.addEventListener("click", replayTrack);
+    el.scoreCloseMedia.addEventListener("click", stopOnly);
+
+    el.mediaPlay.addEventListener("click", () => {
+      if (state.media?.kind === "file" && state.media.el) state.media.el.play();
+      if (state.media?.kind === "youtube" && state.youtubePlayer?.playVideo) state.youtubePlayer.playVideo();
+    });
+    el.mediaPause.addEventListener("click", () => {
+      if (state.media?.kind === "file" && state.media.el) state.media.el.pause();
+      if (state.media?.kind === "youtube" && state.youtubePlayer?.pauseVideo) state.youtubePlayer.pauseVideo();
+      el.mediaStatus.textContent = "пауза";
+      saveState();
+    });
+    el.mediaStop.addEventListener("click", stopOnly);
+    el.mediaReplay.addEventListener("click", replayTrack);
+    el.mediaGuessEarly.addEventListener("click", earlyGuess);
+
+    el.volumeRange.addEventListener("input", () => {
+      state.volume = Number(el.volumeRange.value) / 100;
+      if (state.media?.kind === "file" && state.media.el) state.media.el.volume = state.volume;
+      if (state.media?.kind === "youtube" && state.youtubePlayer?.setVolume) state.youtubePlayer.setVolume(Math.round(state.volume * 100));
+      saveState();
+    });
+
+    el.btnRestart.addEventListener("click", restartGame);
+    el.btnShowWinners.addEventListener("click", () => { updateWinners(); el.winnersSection.style.display = "block"; });
+    el.btnManageTracks.addEventListener("click", openTrackDialog);
+    el.btnManageCategories.addEventListener("click", () => showCategoriesDialog(false));
+    el.tracksClose.addEventListener("click", () => el.trackDialog.close());
+    el.tracksSave.addEventListener("click", saveTracks);
+    el.trackNameOk.addEventListener("click", () => el.trackNameDialog.close());
+
+    window.addEventListener("beforeunload", saveState);
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
